@@ -71,6 +71,16 @@ MODELS_TO_TEST = [
         "model_id": "meta-llama/Llama-3.2-1B",
         "description": "Meta Llama 3.2 (1B params, gated)",
     },
+    {
+        "name": "Ministral-3-14B",
+        "model_id": "mistralai/Ministral-3-14B-Instruct-2512",
+        "description": "Ministral 3 (14B params, gated)",
+    },
+    {
+        "name": "Gemma-3-270m",
+        "model_id": "google/gemma-3-270m",
+        "description": "Google Gemma 3 (270M params)",
+    },
 ]
 
 
@@ -354,8 +364,37 @@ def main():
         action="store_true",
         help="Skip interactive authentication prompt",
     )
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default=None,
+        help="Test only a specific model by name (e.g., 'SmolLM2-135M-Instruct')",
+    )
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="List available models and exit",
+    )
     
     args = parser.parse_args()
+    
+    # Handle --list-models
+    if args.list_models:
+        print("Available models:")
+        for m in MODELS_TO_TEST:
+            print(f"  - {m['name']}: {m['description']}")
+        return 0
+    
+    # Filter models if --model is specified
+    models_to_run = MODELS_TO_TEST
+    if args.model:
+        models_to_run = [m for m in MODELS_TO_TEST if m['name'].lower() == args.model.lower()]
+        if not models_to_run:
+            print(f"❌ Model '{args.model}' not found")
+            print("Available models:")
+            for m in MODELS_TO_TEST:
+                print(f"  - {m['name']}")
+            return 1
     
     print("=" * 80)
     print("TRANSFORMER-CLONER MULTI-MODEL COMPATIBILITY TEST")
@@ -367,8 +406,8 @@ def main():
     if args.hub_org:
         print(f"  - Hub organization: {args.hub_org}")
     
-    print(f"\nModels to test ({len(MODELS_TO_TEST)}):")
-    for m in MODELS_TO_TEST:
+    print(f"\nModels to test ({len(models_to_run)}):")
+    for m in models_to_run:
         print(f"  - {m['name']}: {m['description']}")
     
     # Setup HuggingFace authentication
@@ -383,7 +422,7 @@ def main():
     
     results = []
     
-    for model_info in MODELS_TO_TEST:
+    for model_info in models_to_run:
         try:
             result = test_model(
                 model_info=model_info,
