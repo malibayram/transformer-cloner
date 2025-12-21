@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "transformer-cloner"
+version = "0.2.0"
+authors = [
+    { name = "Ali Bayram", email = "malibayram20@gmail.com" },
+]
+description = "Clone and prune transformer models with new tokenizers"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = [
+    "transformers",
+    "llm",
+    "tokenizer",
+    "model-cloning",
+    "model-pruning",
+    "huggingface",
+    "deep-learning",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/AliTava662/transformer-cloner"
+Documentation = "https://github.com/AliTava662/transformer-cloner#readme"
+Repository = "https://github.com/AliTavakolian/transformer-cloner"
+Issues = "https://github.com/AliTavakolian/transformer-cloner/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transformer_cloner"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+]
