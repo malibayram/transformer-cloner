@@ -10,7 +10,7 @@ from transformer_cloner.pruning_config import PruningConfig
 from transformer_cloner.cloner import TransformerCloner
 from transformer_cloner.vocab_pruned_tokenizer import VocabPrunedTokenizer
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __all__ = [
     "TransformerCloner",
     "EmbeddingStrategy",
