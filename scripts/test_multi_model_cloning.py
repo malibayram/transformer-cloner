@@ -23,12 +23,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
-from huggingface_hub import HfApi, login
+from huggingface_hub import login
 
 # Add src to path for local development
 sys.path.insert(0, "src")
 
-from transformer_cloner import TransformerCloner
+from transformer_cloner import TransformerCloner, PruningConfig
 
 
 @dataclass
@@ -129,6 +129,7 @@ def setup_hf_auth(token: Optional[str] = None) -> Optional[str]:
 def test_model(
     model_info: dict,
     vocab_size: int,
+    pruning_config: Optional[PruningConfig],
     output_dir: Optional[str],
     push_to_hub: bool,
     hub_org: Optional[str],
@@ -178,11 +179,22 @@ def test_model(
     result.token_map_success = True  # Mark as success (not applicable)
     
     # Step 2: Test vocab-pruned cloning
-    print(f"\n[2/3] Cloning with vocab pruning (vocab_size={vocab_size})...")
+    pruning_info = f"vocab_size={vocab_size}"
+    if pruning_config is not None:
+        if pruning_config.num_hidden_layers:
+            pruning_info += f", layers={pruning_config.num_hidden_layers}"
+        if pruning_config.hidden_size:
+            pruning_info += f", hidden={pruning_config.hidden_size}"
+        if pruning_config.intermediate_size:
+            pruning_info += f", ffn={pruning_config.intermediate_size}"
+        if pruning_config.num_attention_heads:
+            pruning_info += f", heads={pruning_config.num_attention_heads}"
+    print(f"\n[2/3] Cloning with pruning ({pruning_info})...")
     try:
         start_time = time.time()
         cloned_model, pruned_tokenizer, id_mapping = cloner.clone_with_vocab_pruning(
             vocab_size=vocab_size,
+            pruning_config=pruning_config,
             verbose=True,
         )
         result.clone_time = time.time() - start_time
@@ -376,6 +388,45 @@ def main():
         help="List available models and exit",
     )
     
+    # Pruning options for smaller/faster models
+    pruning_group = parser.add_argument_group("pruning options", "Options to create smaller models for faster testing")
+    pruning_group.add_argument(
+        "--num-layers", "-l",
+        type=int,
+        default=None,
+        help="Number of transformer layers to keep (e.g., 12 -> 6)",
+    )
+    pruning_group.add_argument(
+        "--hidden-size",
+        type=int,
+        default=None,
+        help="Embedding dimension (e.g., 768 -> 512)",
+    )
+    pruning_group.add_argument(
+        "--intermediate-size",
+        type=int,
+        default=None,
+        help="FFN intermediate dimension (e.g., 3072 -> 1536)",
+    )
+    pruning_group.add_argument(
+        "--num-attention-heads",
+        type=int,
+        default=None,
+        help="Number of attention heads (e.g., 12 -> 8)",
+    )
+    pruning_group.add_argument(
+        "--num-kv-heads",
+        type=int,
+        default=None,
+        help="Number of KV heads for GQA (e.g., 4 -> 2)",
+    )
+    pruning_group.add_argument(
+        "--head-dim",
+        type=int,
+        default=None,
+        help="Dimension per attention head (e.g., 64 -> 32)",
+    )
+    
     args = parser.parse_args()
     
     # Handle --list-models
@@ -400,7 +451,37 @@ def main():
     print("TRANSFORMER-CLONER MULTI-MODEL COMPATIBILITY TEST")
     print("=" * 80)
     print(f"\nConfiguration:")
+    # Build pruning config if any pruning options specified
+    pruning_config = None
+    has_pruning = any([
+        args.num_layers, args.hidden_size, args.intermediate_size,
+        args.num_attention_heads, args.num_kv_heads, args.head_dim
+    ])
+    if has_pruning:
+        pruning_config = PruningConfig(
+            num_hidden_layers=args.num_layers,
+            hidden_size=args.hidden_size,
+            intermediate_size=args.intermediate_size,
+            num_attention_heads=args.num_attention_heads,
+            num_key_value_heads=args.num_kv_heads,
+            head_dim=args.head_dim,
+        )
+    
     print(f"  - Target vocab size: {args.vocab_size}")
+    if pruning_config:
+        print(f"  - Pruning config:")
+        if args.num_layers:
+            print(f"      layers: {args.num_layers}")
+        if args.hidden_size:
+            print(f"      hidden_size: {args.hidden_size}")
+        if args.intermediate_size:
+            print(f"      intermediate_size: {args.intermediate_size}")
+        if args.num_attention_heads:
+            print(f"      num_attention_heads: {args.num_attention_heads}")
+        if args.num_kv_heads:
+            print(f"      num_kv_heads: {args.num_kv_heads}")
+        if args.head_dim:
+            print(f"      head_dim: {args.head_dim}")
     print(f"  - Output directory: {args.output_dir}")
     print(f"  - Push to Hub: {args.push_to_hub}")
     if args.hub_org:
@@ -427,6 +508,7 @@ def main():
             result = test_model(
                 model_info=model_info,
                 vocab_size=args.vocab_size,
+                pruning_config=pruning_config,
                 output_dir=args.output_dir if not args.push_to_hub else None,
                 push_to_hub=args.push_to_hub,
                 hub_org=args.hub_org,
