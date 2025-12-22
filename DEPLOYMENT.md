@@ -1,93 +1,53 @@
 # Deployment Guide
 
-This guide covers how to test, build, and publish the `transformer-cloner` package to PyPI.
+This guide covers how to deploy the `transformer-cloner` package using the automated GitHub Actions workflow.
 
 ## Prerequisites
 
-```bash
-pip install build twine pytest
-```
+1.  **PyPI Token**: Ensure a PyPI API token is added to the GitHub repository secrets as `PYPI_API_TOKEN`.
 
-## Pre-Deployment Checklist
+## Automated Deployment
 
-1. **Update version** in both files:
+The deployment process is automated via GitHub Actions. It triggers whenever a new tag starting with `v` is pushed (e.g., `v0.2.1`).
 
-   - `pyproject.toml`: `version = "X.Y.Z"`
-   - `src/transformer_cloner/__init__.py`: `__version__ = "X.Y.Z"`
+### Steps to Release
 
-2. **Run tests**:
+1.  **Bump Version**:
+    Use the helper script to bump the version in `pyproject.toml` and `src/transformer_cloner/__init__.py`.
 
-   ```bash
-   python -m pytest tests/ -v
-   ```
+    ```bash
+    # Bump patch version (0.2.0 -> 0.2.1)
+    python scripts/bump_version.py patch
 
-3. **Verify all tests pass** before proceeding.
+    # Or bump minor/major
+    python scripts/bump_version.py minor
+    ```
 
----
+2.  **Commit and Tag**:
 
-## Build Package
+    ```bash
+    git add pyproject.toml src/transformer_cloner/__init__.py
+    git commit -m "Bump version to $(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])" 2>/dev/null || grep 'version =' pyproject.toml | cut -d '"' -f 2)"
+    # Or just check the version and tag manually:
 
-```bash
-# Clean previous builds
-rm -rf dist/
+    # Tag the release
+    git tag v0.2.1  # Replace with actual new version
+    ```
 
-# Build wheel and source distribution
-python -m build
-```
+3.  **Push to GitHub**:
 
-This creates:
+    ```bash
+    git push origin main --tags
+    ```
 
-- `dist/transformer_cloner-X.Y.Z-py3-none-any.whl`
-- `dist/transformer_cloner-X.Y.Z.tar.gz`
+4.  **Watch the Magic**:
+    - Go to the "Actions" tab in the GitHub repository.
+    - You will see a "Publish to PyPI" workflow running.
+    - Once completed, the package will be available on PyPI.
 
----
+## Verification
 
-## PyPI API Token
-
-**Token Name:** cloner  
-**Scope:** Entire account (all projects)
-
-```
-pypi-your-pypi-token
-```
-
-### Configure ~/.pypirc (Optional)
-
-```ini
-[pypi]
-username = __token__
-password = pypi-your-pypi-token
-```
-
----
-
-## Upload to PyPI
-
-### Option 1: With ~/.pypirc configured
-
-```bash
-python -m twine upload dist/*
-```
-
-### Option 2: Manual token entry
-
-```bash
-python -m twine upload dist/*
-# Enter username: __token__
-# Enter password: <paste token>
-```
-
----
-
-## One-Liner Deploy
-
-```bash
-rm -rf dist/ && python -m build && python -m twine upload dist/*
-```
-
----
-
-## Verify Deployment
+After the workflow finishes:
 
 ```bash
 # Check PyPI page
@@ -98,15 +58,12 @@ pip install --upgrade transformer-cloner
 python -c "from transformer_cloner import __version__; print(__version__)"
 ```
 
----
+## Manual Deployment (Fallback)
 
-## Version History
+If the automation fails, you can still deploy manually:
 
-| Version | Changes                                                            |
-| ------- | ------------------------------------------------------------------ |
-| 0.1.6   | Added `VocabPrunedTokenizer` wrapper for automatic token remapping |
-| 0.1.5   | Comprehensive README docs, 49 tests                                |
-| 0.1.4   | Fixed Gemma-style model validation (head_dim check)                |
-| 0.1.3   | Fixed `clone_with_vocab_pruning` to return 3 values                |
-| 0.1.2   | Updated README                                                     |
-| 0.1.1   | Initial PyPI release                                               |
+```bash
+rm -rf dist/
+python -m build
+python -m twine upload dist/*
+```
