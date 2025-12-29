@@ -12,6 +12,7 @@
 - 📉 **Model Compression**: Create smaller models for edge deployment
 - 🎓 **Knowledge Distillation**: Generate student models from teacher models
 - 🔬 **Research**: Experiment with different model architectures
+- 🔤 **SentenceTransformer Cloning**: Clone embedding models with new tokenizers and pruning
 
 ---
 
@@ -441,6 +442,60 @@ else:
 
 ---
 
+## 🔄 SentenceTransformerCloner
+
+Clone SentenceTransformer models with new tokenizers and/or architecture pruning.
+
+```python
+from transformer_cloner import SentenceTransformerCloner, PruningConfig
+
+cloner = SentenceTransformerCloner(
+    model_path: str,                          # Path to SentenceTransformer model
+    target_tokenizer_id: Optional[str] = None, # New tokenizer (None = keep original)
+    pruning_config: Optional[PruningConfig] = None,  # Optional architecture pruning
+    token: str = None,                        # Optional HuggingFace API token
+)
+```
+
+### Clone with New Tokenizer
+
+```python
+from transformer_cloner import SentenceTransformerCloner
+
+cloner = SentenceTransformerCloner(
+    model_path="./embeddinggemma",
+    target_tokenizer_id="alibayram/turkish-tokenizer"
+)
+cloner.clone(verbose=True)
+cloner.save("./cloned_sentence_transformer")
+```
+
+### Clone with Architecture Pruning
+
+```python
+from transformer_cloner import SentenceTransformerCloner, PruningConfig
+
+config = PruningConfig(
+    hidden_size=512,
+    num_hidden_layers=12,
+)
+
+cloner = SentenceTransformerCloner(
+    model_path="./embeddinggemma",
+    target_tokenizer_id="alibayram/turkish-tokenizer",
+    pruning_config=config
+)
+cloner.clone(verbose=True)
+cloner.save("./cloned_pruned_model")
+```
+
+**What gets handled:**
+
+- **Transformer**: Cloned using `TransformerCloner` with embedding mapping
+- **Pooling**: Config's `word_embedding_dimension` updated to match new `hidden_size`
+- **Dense layers**: Weights sliced when dimensions match `hidden_size`
+- **Normalize**: Copied as-is (no weights)
+
 ## 📊 Gemma-3-270m Architecture Reference
 
 For `google/gemma-3-270m-it`:
@@ -531,11 +586,12 @@ print("Done! Model saved to ./turkish-gemma-small")
 
 The repository includes test scripts to validate the package with various models:
 
-| Script                                                                                                                                  | Description                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| [`test_multi_model_cloning.py`](https://github.com/malibayram/transformer-cloner/blob/main/scripts/test_multi_model_cloning.py)         | Test vocab pruning across multiple model families |
-| [`test_generation.py`](https://github.com/malibayram/transformer-cloner/blob/main/scripts/test_generation.py)                           | Test text generation with cloned models           |
-| [`test_cross_tokenizer_cloning.py`](https://github.com/malibayram/transformer-cloner/blob/main/scripts/test_cross_tokenizer_cloning.py) | Test cloning with a custom tokenizer              |
+| Script                                                                                                                                        | Description                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [`test_multi_model_cloning.py`](https://github.com/malibayram/transformer-cloner/blob/main/scripts/test_multi_model_cloning.py)               | Test vocab pruning across multiple model families |
+| [`test_generation.py`](https://github.com/malibayram/transformer-cloner/blob/main/scripts/test_generation.py)                                 | Test text generation with cloned models           |
+| [`test_cross_tokenizer_cloning.py`](https://github.com/malibayram/transformer-cloner/blob/main/scripts/test_cross_tokenizer_cloning.py)       | Test cloning with a custom tokenizer              |
+| [`test_sentence_transformer_cloner.py`](https://github.com/malibayram/transformer-cloner/blob/main/tests/test_sentence_transformer_cloner.py) | Test SentenceTransformer cloning with pruning     |
 
 **Run locally:**
 
@@ -548,6 +604,9 @@ python scripts/test_generation.py
 
 # Clone with a custom Turkish tokenizer
 python scripts/test_cross_tokenizer_cloning.py
+
+# Test SentenceTransformer cloning
+python tests/test_sentence_transformer_cloner.py
 ```
 
 ---

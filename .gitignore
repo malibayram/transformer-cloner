@@ -45,3 +45,6 @@ htmlcov/
 Thumbs.db
 
 cloned_models*/
+
+embeddinggemma*/
+sentence_transformers/
