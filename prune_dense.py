@@ -19,9 +19,9 @@ def prune_dense_layer(dense_path, input_pruning=False, output_pruning=False):
     bias = tensors.get("linear.bias", None)
 
     print(f"Original weight shape: {weight.shape}")
-    
+
     new_weight = weight
-    
+
     # Prune Input (Columns corresponding to input features)
     # Weight shape for Linear is [out_features, in_features]
     if input_pruning:

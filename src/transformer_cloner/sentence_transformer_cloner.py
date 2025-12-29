@@ -186,17 +186,25 @@ class SentenceTransformerCloner:
             module_name = module_info["name"]
             module_path = os.path.join(self.model_path, module_info["path"])
             
-            if "Transformer" in module_type:
+            # Extract the class name from the module type (e.g., "sentence_transformers.models.Dense" -> "Dense")
+            type_class = module_type.split(".")[-1]
+            
+            if type_class == "Transformer":
                 self._clone_transformer(module_path, verbose)
-            elif "Pooling" in module_type:
+            elif type_class == "Pooling":
                 self._clone_pooling(module_path, module_name, verbose)
-            elif "Dense" in module_type:
+            elif type_class == "Dense":
                 self._clone_dense(module_path, module_name, verbose)
-            elif "Normalize" in module_type:
+            elif type_class == "Normalize":
                 self._clone_normalize(module_name, verbose)
+            elif type_class == "LayerNorm":
+                self._clone_layernorm(module_path, module_name, verbose)
+            elif type_class == "Dropout":
+                self._clone_dropout(module_path, module_name, verbose)
             else:
+                # For any other module type, copy as-is
                 if verbose:
-                    print(f"Copying unknown module type: {module_type}")
+                    print(f"Copying module: {module_name} ({type_class})")
                 self._copy_module(module_path, module_name)
         
         if verbose:
@@ -336,6 +344,70 @@ class SentenceTransformerCloner:
             "type": "Normalize",
         }
     
+    def _clone_layernorm(self, module_path: str, module_name: str, verbose: bool) -> None:
+        """Clone the LayerNorm module, updating dimension if pruning."""
+        if verbose:
+            print(f"Processing LayerNorm module: {module_name}")
+        
+        config_path = os.path.join(module_path, "config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+        
+        # Load weights
+        state_dict = self._load_module_weights(module_path)
+        
+        # Update dimension if pruning
+        if self.pruning_config and self.pruning_config.hidden_size:
+            orig_dim = config["dimension"]
+            if orig_dim == self.original_hidden_size:
+                config["dimension"] = self.new_hidden_size
+                # Prune the LayerNorm weights (weight and bias)
+                if state_dict:
+                    if "norm.weight" in state_dict:
+                        state_dict["norm.weight"] = state_dict["norm.weight"][:self.new_hidden_size].clone()
+                    if "norm.bias" in state_dict:
+                        state_dict["norm.bias"] = state_dict["norm.bias"][:self.new_hidden_size].clone()
+                if verbose:
+                    print(f"  Updated dimension: {orig_dim} -> {self.new_hidden_size}")
+            else:
+                if verbose:
+                    print(f"  Keeping dimension: {orig_dim}")
+        else:
+            if verbose:
+                print(f"  Keeping dimension: {config['dimension']}")
+        
+        self.cloned_modules[module_name] = {
+            "config": config,
+            "weights": state_dict,
+            "type": "LayerNorm",
+        }
+    
+    def _clone_dropout(self, module_path: str, module_name: str, verbose: bool) -> None:
+        """Clone the Dropout module (config only, no weights)."""
+        if verbose:
+            print(f"Processing Dropout module: {module_name}")
+        
+        config_path = os.path.join(module_path, "config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+        
+        self.cloned_modules[module_name] = {
+            "config": config,
+            "weights": None,
+            "type": "Dropout",
+        }
+    
+    def _load_module_weights(self, module_path: str) -> dict:
+        """Load module weights from safetensors or pytorch format."""
+        safetensors_path = os.path.join(module_path, "model.safetensors")
+        pytorch_path = os.path.join(module_path, "pytorch_model.bin")
+        
+        if os.path.exists(safetensors_path):
+            return load_safetensors(safetensors_path)
+        elif os.path.exists(pytorch_path):
+            return torch.load(pytorch_path, map_location="cpu", weights_only=True)
+        return {}
+    
     def _copy_module(self, module_path: str, module_name: str) -> None:
         """Copy an unknown module type as-is."""
         self.cloned_modules[module_name] = {
@@ -403,6 +475,10 @@ class SentenceTransformerCloner:
                 self._save_dense_module(full_module_path, module_data, safe_serialization, verbose)
             elif module_type == "Normalize":
                 self._save_normalize_module(full_module_path, verbose)
+            elif module_type == "LayerNorm":
+                self._save_layernorm_module(full_module_path, module_data, safe_serialization, verbose)
+            elif module_type == "Dropout":
+                self._save_dropout_module(full_module_path, module_data, verbose)
             elif module_type == "copy":
                 self._copy_module_dir(module_data["source_path"], full_module_path, verbose)
         
@@ -451,6 +527,42 @@ class SentenceTransformerCloner:
         # Normalize module typically has no files, but we create the directory
         if verbose:
             print(f"  Created Normalize module at {output_path}")
+    
+    def _save_layernorm_module(
+        self, output_path: str, module_data: dict, safe_serialization: bool, verbose: bool
+    ) -> None:
+        """Save a LayerNorm module."""
+        config = module_data["config"]
+        weights = module_data["weights"]
+        
+        # Save config
+        config_path = os.path.join(output_path, "config.json")
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=2)
+        
+        # Save weights if present
+        if weights:
+            if safe_serialization:
+                weights_path = os.path.join(output_path, "model.safetensors")
+                save_safetensors(weights, weights_path)
+            else:
+                weights_path = os.path.join(output_path, "pytorch_model.bin")
+                torch.save(weights, weights_path)
+        
+        if verbose:
+            print(f"  Saved LayerNorm module to {output_path}")
+    
+    def _save_dropout_module(self, output_path: str, module_data: dict, verbose: bool) -> None:
+        """Save a Dropout module (config only, no weights)."""
+        config = module_data["config"]
+        
+        # Save config
+        config_path = os.path.join(output_path, "config.json")
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=2)
+        
+        if verbose:
+            print(f"  Saved Dropout module to {output_path}")
     
     def _copy_module_dir(self, source_path: str, dest_path: str, verbose: bool) -> None:
         """Copy a module directory as-is."""

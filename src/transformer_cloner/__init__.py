@@ -11,7 +11,7 @@ from transformer_cloner.cloner import TransformerCloner
 from transformer_cloner.vocab_pruned_tokenizer import VocabPrunedTokenizer
 from transformer_cloner.sentence_transformer_cloner import SentenceTransformerCloner
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 __all__ = [
     "TransformerCloner",
     "SentenceTransformerCloner",
