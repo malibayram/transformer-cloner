@@ -10,7 +10,7 @@
 
 - 🌍 **Language Adaptation**: Use a custom tokenizer optimized for your language
 - 📉 **Model Compression**: Create smaller models for edge deployment
-- 🎓 **Knowledge Distillation**: Generate student models from teacher models
+- 🎓 **Knowledge Distillation**: Clone + train student models from teachers in one workflow
 - 🔬 **Research**: Experiment with different model architectures
 - 🔤 **SentenceTransformer Cloning**: Clone embedding models with new tokenizers and pruning
 
@@ -495,6 +495,137 @@ cloner.save("./cloned_pruned_model")
 - **Pooling**: Config's `word_embedding_dimension` updated to match new `hidden_size`
 - **Dense layers**: Weights sliced when dimensions match `hidden_size`
 - **Normalize**: Copied as-is (no weights)
+
+---
+
+## 🎓 Clone + Distillation Training
+
+Combine model cloning with knowledge distillation training in a single workflow. Clone a teacher model (with optional pruning/tokenizer change) and train the student using the original teacher.
+
+### SentenceTransformerCloneDistiller
+
+For SentenceTransformer embedding models:
+
+```python
+from transformer_cloner import (
+    SentenceTransformerCloneDistiller,
+    PruningConfig,
+)
+
+# Create distiller with pruning
+distiller = SentenceTransformerCloneDistiller(
+    teacher_model="mixedbread-ai/mxbai-embed-large-v1",
+    pruning_config=PruningConfig(
+        hidden_size=512,
+        num_hidden_layers=6,
+    ),
+    output_dir="./distilled_model",
+)
+
+# Load training data
+distiller.load_data("sentence-transformers/all-nli")
+
+# Run full pipeline: Clone → Train → Save
+distiller.run(epochs=1)
+```
+
+**Step-by-step control:**
+
+```python
+# Clone only (no training)
+distiller.clone()
+
+# Evaluate distillation quality
+metrics = distiller.evaluate()
+print(f"MSE: {metrics['mse']:.6f}, Cosine: {metrics['cosine_similarity']:.4f}")
+
+# Train separately
+distiller.train(epochs=1, learning_rate=2e-5)
+
+# Save
+distiller.save("./final_model")
+```
+
+**Configuration options:**
+
+```python
+from transformer_cloner import CloneDistillerConfig
+
+config = CloneDistillerConfig(
+    teacher_model="sentence-transformers/all-mpnet-base-v2",
+    train_epochs=1,
+    train_batch_size=64,
+    learning_rate=2e-5,
+    loss_type="mse",  # "mse", "cosine", or "combined"
+    output_dir="./output",
+)
+```
+
+---
+
+### TransformerCloneDistiller
+
+For causal language models (LLMs):
+
+```python
+from transformer_cloner import (
+    TransformerCloneDistiller,
+    PruningConfig,
+)
+
+distiller = TransformerCloneDistiller(
+    teacher_model="Qwen/Qwen2-1.5B",
+    pruning_config=PruningConfig(num_hidden_layers=12),
+)
+
+distiller.load_data("wikitext", "wikitext-2-raw-v1")
+distiller.run()
+distiller.save("./distilled_qwen")
+```
+
+**Configuration options:**
+
+```python
+from transformer_cloner import TransformerCloneDistillerConfig
+
+config = TransformerCloneDistillerConfig(
+    teacher_model="gpt2",
+    distillation_type="logit",  # "logit", "embedding", or "combined"
+    temperature=2.0,
+    alpha=0.5,  # Weight for soft targets vs hard targets
+)
+```
+
+---
+
+### Clone + Distil Workflow
+
+```
+┌──────────────┐
+│ Teacher Model│
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────┐
+│ Clone with Pruning/Tokenizer │
+└──────────────┬───────────────┘
+               │
+               ▼
+       ┌───────────────┐
+       │ Student Model │
+       └───────┬───────┘
+               │
+┌──────────────┼──────────────┐
+│              ▼              │
+│  Teacher ──▶ Distillation   │
+│              Training       │
+│                 │           │
+└─────────────────┼───────────┘
+                  ▼
+          ┌─────────────┐
+          │Trained Model│
+          └─────────────┘
+```
 
 ## 📊 Gemma-3-270m Architecture Reference
 
