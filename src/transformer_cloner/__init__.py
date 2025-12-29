@@ -10,14 +10,27 @@ from transformer_cloner.pruning_config import PruningConfig
 from transformer_cloner.cloner import TransformerCloner
 from transformer_cloner.vocab_pruned_tokenizer import VocabPrunedTokenizer
 from transformer_cloner.sentence_transformer_cloner import SentenceTransformerCloner
+from transformer_cloner.sentence_transformer_distiller import (
+    SentenceTransformerCloneDistiller,
+    CloneDistillerConfig,
+)
+from transformer_cloner.clone_distiller import (
+    TransformerCloneDistiller,
+    TransformerCloneDistillerConfig,
+)
 
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 __all__ = [
     "TransformerCloner",
     "SentenceTransformerCloner",
     "EmbeddingStrategy",
     "PruningConfig",
     "VocabPrunedTokenizer",
+    # Clone + Distillation
+    "SentenceTransformerCloneDistiller",
+    "CloneDistillerConfig",
+    "TransformerCloneDistiller",
+    "TransformerCloneDistillerConfig",
+    # Version
     "__version__",
 ]
-
