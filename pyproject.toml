@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "transformer-cloner"
-version = "0.2.8"
+version = "0.2.9"
 authors = [
     { name = "Ali Bayram", email = "malibayram20@gmail.com" },
 ]
@@ -37,6 +37,9 @@ keywords = [
 dependencies = [
     "torch>=2.0.0",
     "transformers>=4.40.0",
+    "datasets>=2.0.0",
+    "sentence-transformers>=2.0.0",
+    "tqdm>=4.0.0",
 ]
 
 [project.optional-dependencies]
