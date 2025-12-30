@@ -6,8 +6,32 @@ import shutil
 from typing import Optional
 
 import torch
+from huggingface_hub import snapshot_download
 from safetensors.torch import load_file as load_safetensors
 from safetensors.torch import save_file as save_safetensors
+
+
+def _resolve_model_path(model_id: str, token: Optional[str] = None) -> str:
+    """
+    Resolve a model path - download from HuggingFace Hub if not a local path.
+    
+    Args:
+        model_id: Local path or HuggingFace model ID (e.g., "google/embeddinggemma-300m")
+        token: Optional HuggingFace API token for gated models
+    
+    Returns:
+        Local path to the model directory
+    """
+    # Check if it's already a local path
+    if os.path.isdir(model_id):
+        return model_id
+    
+    # Download from HuggingFace Hub
+    local_path = snapshot_download(
+        repo_id=model_id,
+        token=token,
+    )
+    return local_path
 
 
 class SentenceTransformerCloner:
@@ -58,7 +82,8 @@ class SentenceTransformerCloner:
         """
         from transformer_cloner.pruning_config import PruningConfig
         
-        self.model_path = model_path
+        self.model_id = model_path  # Keep original for reference
+        self.model_path = _resolve_model_path(model_path, token)  # Resolved local path
         self.target_tokenizer_id = target_tokenizer_id
         self.pruning_config = pruning_config
         self.token = token
@@ -94,7 +119,7 @@ class SentenceTransformerCloner:
         # Load weights
         safetensors_path = os.path.join(module_path, "model.safetensors")
         pytorch_path = os.path.join(module_path, "pytorch_model.bin")
-        
+
         if os.path.exists(safetensors_path):
             state_dict = load_safetensors(safetensors_path)
         elif os.path.exists(pytorch_path):
@@ -214,8 +239,10 @@ class SentenceTransformerCloner:
     
     def _clone_transformer(self, module_path: str, verbose: bool) -> None:
         """Clone the transformer module using TransformerCloner."""
+        from transformers import (AutoConfig, AutoModelForCausalLM,
+                                  AutoTokenizer)
+
         from transformer_cloner.cloner import TransformerCloner
-        from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
         
         if verbose:
             print("Cloning Transformer module...")

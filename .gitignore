@@ -48,3 +48,6 @@ cloned_models*/
 
 embeddinggemma*/
 sentence_transformers/
+cloned_sentence_transformer/
+demo.py
+
